@@ -688,6 +688,7 @@ endif()
 
 # ── Include directories ─────────────────────────────────────────────────────
 target_include_directories(dosbox-x PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/aviwriter
@@ -829,59 +830,419 @@ endif()
 
 # ── Find and link dependencies ──────────────────────────────────────────────
 
-# On Windows, try the bundled VS libraries first, then fall back to find_package
+# On Windows, build bundled VS libraries from source
 if(IS_WINDOWS)
     set(VS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vs")
 
-    if(USE_SDL2)
-        if(EXISTS "${VS_DIR}/sdl2/include/SDL.h")
-            target_include_directories(dosbox-x PRIVATE "${VS_DIR}/sdl2/include")
-            message(STATUS "Using bundled SDL2 headers from vs/sdl2/include")
-        else()
-            find_package(SDL2 REQUIRED)
-            target_include_directories(dosbox-x PRIVATE ${SDL2_INCLUDE_DIRS})
-            target_link_libraries(dosbox-x PRIVATE ${SDL2_LIBRARIES})
-        endif()
-        if(EXISTS "${VS_DIR}/sdl2net")
-            target_include_directories(dosbox-x PRIVATE "${VS_DIR}/sdl2net")
-        endif()
-    else()
-        if(EXISTS "${VS_DIR}/sdl/include/SDL.h")
-            target_include_directories(dosbox-x PRIVATE "${VS_DIR}/sdl/include")
-            message(STATUS "Using bundled SDL1 headers from vs/sdl/include")
-        else()
-            find_package(SDL REQUIRED)
-            target_include_directories(dosbox-x PRIVATE ${SDL_INCLUDE_DIRS})
-            target_link_libraries(dosbox-x PRIVATE ${SDL_LIBRARIES})
-        endif()
-        if(EXISTS "${VS_DIR}/sdlnet")
-            target_include_directories(dosbox-x PRIVATE "${VS_DIR}/sdlnet")
+    # ── zlib ────────────────────────────────────────────────────────────────
+    add_library(zlib_bundled STATIC
+        vs/zlib/adler32.c
+        vs/zlib/compress.c
+        vs/zlib/crc32.c
+        vs/zlib/deflate.c
+        vs/zlib/gzclose.c
+        vs/zlib/gzlib.c
+        vs/zlib/gzread.c
+        vs/zlib/gzwrite.c
+        vs/zlib/infback.c
+        vs/zlib/inffast.c
+        vs/zlib/inflate.c
+        vs/zlib/inftrees.c
+        vs/zlib/trees.c
+        vs/zlib/uncompr.c
+        vs/zlib/zutil.c
+    )
+    target_include_directories(zlib_bundled PUBLIC "${VS_DIR}/zlib")
+    target_compile_definitions(zlib_bundled PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE)
+    if(MSVC)
+        target_compile_options(zlib_bundled PRIVATE /W0 /MP)
+    endif()
+
+    # ── libpng ──────────────────────────────────────────────────────────────
+    add_library(libpng_bundled STATIC
+        vs/libpng/png.c
+        vs/libpng/pngerror.c
+        vs/libpng/pngget.c
+        vs/libpng/pngmem.c
+        vs/libpng/pngpread.c
+        vs/libpng/pngread.c
+        vs/libpng/pngrio.c
+        vs/libpng/pngrtran.c
+        vs/libpng/pngrutil.c
+        vs/libpng/pngset.c
+        vs/libpng/pngtrans.c
+        vs/libpng/pngwio.c
+        vs/libpng/pngwrite.c
+        vs/libpng/pngwtran.c
+        vs/libpng/pngwutil.c
+    )
+    target_include_directories(libpng_bundled PUBLIC "${VS_DIR}/libpng")
+    target_link_libraries(libpng_bundled PRIVATE zlib_bundled)
+    target_compile_definitions(libpng_bundled PRIVATE _CRT_SECURE_NO_WARNINGS)
+    if(MSVC)
+        target_compile_options(libpng_bundled PRIVATE /W0 /MP)
+    endif()
+
+    # ── FreeType ────────────────────────────────────────────────────────────
+    add_library(freetype_bundled STATIC
+        vs/freetype/src/autofit/autofit.c
+        vs/freetype/src/base/ftbase.c
+        vs/freetype/src/base/ftbbox.c
+        vs/freetype/src/base/ftbdf.c
+        vs/freetype/src/base/ftbitmap.c
+        vs/freetype/src/base/ftcid.c
+        vs/freetype/src/base/ftfstype.c
+        vs/freetype/src/base/ftgasp.c
+        vs/freetype/src/base/ftglyph.c
+        vs/freetype/src/base/ftgxval.c
+        vs/freetype/src/base/ftinit.c
+        vs/freetype/src/base/ftmm.c
+        vs/freetype/src/base/ftotval.c
+        vs/freetype/src/base/ftpatent.c
+        vs/freetype/src/base/ftpfr.c
+        vs/freetype/src/base/ftstroke.c
+        vs/freetype/src/base/ftsynth.c
+        vs/freetype/src/base/ftsystem.c
+        vs/freetype/src/base/fttype1.c
+        vs/freetype/src/base/ftwinfnt.c
+        vs/freetype/src/bdf/bdf.c
+        vs/freetype/src/cache/ftcache.c
+        vs/freetype/src/cff/cff.c
+        vs/freetype/src/cid/type1cid.c
+        vs/freetype/src/gzip/ftgzip.c
+        vs/freetype/src/lzw/ftlzw.c
+        vs/freetype/src/pcf/pcf.c
+        vs/freetype/src/pfr/pfr.c
+        vs/freetype/src/psaux/psaux.c
+        vs/freetype/src/pshinter/pshinter.c
+        vs/freetype/src/psnames/psmodule.c
+        vs/freetype/src/raster/raster.c
+        vs/freetype/src/sdf/ftbsdf.c
+        vs/freetype/src/sdf/ftsdf.c
+        vs/freetype/src/sdf/ftsdfcommon.c
+        vs/freetype/src/sdf/ftsdfrend.c
+        vs/freetype/src/sdf/sdf.c
+        vs/freetype/src/sfnt/sfnt.c
+        vs/freetype/src/smooth/smooth.c
+        vs/freetype/src/svg/ftsvg.c
+        vs/freetype/src/svg/svg.c
+        vs/freetype/src/truetype/truetype.c
+        vs/freetype/src/type1/type1.c
+        vs/freetype/src/type42/type42.c
+        vs/freetype/src/winfonts/winfnt.c
+        vs/freetype/builds/windows/ftdebug.c
+    )
+    target_include_directories(freetype_bundled PUBLIC "${VS_DIR}/freetype/include")
+    target_compile_definitions(freetype_bundled PRIVATE FT2_BUILD_LIBRARY _CRT_SECURE_NO_WARNINGS)
+    if(MSVC)
+        target_compile_options(freetype_bundled PRIVATE /W0 /MP)
+    endif()
+
+    # ── SDL2 ────────────────────────────────────────────────────────────────
+    add_library(sdl2_bundled STATIC
+        vs/sdl2/src/SDL.c
+        vs/sdl2/src/SDL_assert.c
+        vs/sdl2/src/SDL_dataqueue.c
+        vs/sdl2/src/SDL_error.c
+        vs/sdl2/src/SDL_guid.c
+        vs/sdl2/src/SDL_hints.c
+        vs/sdl2/src/SDL_list.c
+        vs/sdl2/src/SDL_log.c
+        vs/sdl2/src/SDL_utils.c
+        vs/sdl2/src/atomic/SDL_atomic.c
+        vs/sdl2/src/atomic/SDL_spinlock.c
+        vs/sdl2/src/audio/SDL_audio.c
+        vs/sdl2/src/audio/SDL_audiocvt.c
+        vs/sdl2/src/audio/SDL_audiodev.c
+        vs/sdl2/src/audio/SDL_audiotypecvt.c
+        vs/sdl2/src/audio/SDL_mixer.c
+        vs/sdl2/src/audio/SDL_wave.c
+        vs/sdl2/src/audio/directsound/SDL_directsound.c
+        vs/sdl2/src/audio/disk/SDL_diskaudio.c
+        vs/sdl2/src/audio/dummy/SDL_dummyaudio.c
+        vs/sdl2/src/audio/wasapi/SDL_wasapi.c
+        vs/sdl2/src/audio/wasapi/SDL_wasapi_win32.c
+        vs/sdl2/src/audio/winmm/SDL_winmm.c
+        vs/sdl2/src/core/windows/SDL_hid.c
+        vs/sdl2/src/core/windows/SDL_immdevice.c
+        vs/sdl2/src/core/windows/SDL_windows.c
+        vs/sdl2/src/core/windows/SDL_xinput.c
+        vs/sdl2/src/cpuinfo/SDL_cpuinfo.c
+        vs/sdl2/src/dynapi/SDL_dynapi.c
+        vs/sdl2/src/events/SDL_clipboardevents.c
+        vs/sdl2/src/events/SDL_displayevents.c
+        vs/sdl2/src/events/SDL_dropevents.c
+        vs/sdl2/src/events/SDL_events.c
+        vs/sdl2/src/events/SDL_gesture.c
+        vs/sdl2/src/events/SDL_keyboard.c
+        vs/sdl2/src/events/SDL_mouse.c
+        vs/sdl2/src/events/SDL_quit.c
+        vs/sdl2/src/events/SDL_touch.c
+        vs/sdl2/src/events/SDL_windowevents.c
+        vs/sdl2/src/file/SDL_rwops.c
+        vs/sdl2/src/filesystem/windows/SDL_sysfilesystem.c
+        vs/sdl2/src/haptic/SDL_haptic.c
+        vs/sdl2/src/haptic/dummy/SDL_syshaptic.c
+        vs/sdl2/src/haptic/windows/SDL_dinputhaptic.c
+        vs/sdl2/src/haptic/windows/SDL_windowshaptic.c
+        vs/sdl2/src/haptic/windows/SDL_xinputhaptic.c
+        vs/sdl2/src/hidapi/SDL_hidapi.c
+        vs/sdl2/src/joystick/SDL_gamecontroller.c
+        vs/sdl2/src/joystick/SDL_joystick.c
+        vs/sdl2/src/joystick/SDL_steam_virtual_gamepad.c
+        vs/sdl2/src/joystick/controller_type.c
+        vs/sdl2/src/joystick/dummy/SDL_sysjoystick.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapijoystick.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_combined.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_gamecube.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_luna.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_ps3.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_ps4.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_ps5.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_rumble.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_shield.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_stadia.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_steam.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_steamdeck.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_switch.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_wii.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_xbox360.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_xbox360w.c
+        vs/sdl2/src/joystick/hidapi/SDL_hidapi_xboxone.c
+        vs/sdl2/src/joystick/virtual/SDL_virtualjoystick.c
+        vs/sdl2/src/joystick/windows/SDL_dinputjoystick.c
+        vs/sdl2/src/joystick/windows/SDL_rawinputjoystick.c
+        vs/sdl2/src/joystick/windows/SDL_windows_gaming_input.c
+        vs/sdl2/src/joystick/windows/SDL_windowsjoystick.c
+        vs/sdl2/src/joystick/windows/SDL_xinputjoystick.c
+        vs/sdl2/src/libm/e_atan2.c
+        vs/sdl2/src/libm/e_exp.c
+        vs/sdl2/src/libm/e_fmod.c
+        vs/sdl2/src/libm/e_log.c
+        vs/sdl2/src/libm/e_log10.c
+        vs/sdl2/src/libm/e_pow.c
+        vs/sdl2/src/libm/e_rem_pio2.c
+        vs/sdl2/src/libm/e_sqrt.c
+        vs/sdl2/src/libm/k_cos.c
+        vs/sdl2/src/libm/k_rem_pio2.c
+        vs/sdl2/src/libm/k_sin.c
+        vs/sdl2/src/libm/k_tan.c
+        vs/sdl2/src/libm/s_atan.c
+        vs/sdl2/src/libm/s_copysign.c
+        vs/sdl2/src/libm/s_cos.c
+        vs/sdl2/src/libm/s_fabs.c
+        vs/sdl2/src/libm/s_floor.c
+        vs/sdl2/src/libm/s_scalbn.c
+        vs/sdl2/src/libm/s_sin.c
+        vs/sdl2/src/libm/s_tan.c
+        vs/sdl2/src/loadso/windows/SDL_sysloadso.c
+        vs/sdl2/src/locale/SDL_locale.c
+        vs/sdl2/src/locale/windows/SDL_syslocale.c
+        vs/sdl2/src/misc/SDL_url.c
+        vs/sdl2/src/misc/windows/SDL_sysurl.c
+        vs/sdl2/src/power/SDL_power.c
+        vs/sdl2/src/power/windows/SDL_syspower.c
+        vs/sdl2/src/render/SDL_d3dmath.c
+        vs/sdl2/src/render/SDL_render.c
+        vs/sdl2/src/render/SDL_yuv_sw.c
+        vs/sdl2/src/render/direct3d/SDL_render_d3d.c
+        vs/sdl2/src/render/direct3d/SDL_shaders_d3d.c
+        vs/sdl2/src/render/direct3d11/SDL_render_d3d11.c
+        vs/sdl2/src/render/direct3d11/SDL_shaders_d3d11.c
+        vs/sdl2/src/render/direct3d12/SDL_render_d3d12.c
+        vs/sdl2/src/render/direct3d12/SDL_shaders_d3d12.c
+        vs/sdl2/src/render/opengl/SDL_render_gl.c
+        vs/sdl2/src/render/opengl/SDL_shaders_gl.c
+        vs/sdl2/src/render/opengles2/SDL_render_gles2.c
+        vs/sdl2/src/render/opengles2/SDL_shaders_gles2.c
+        vs/sdl2/src/render/software/SDL_blendfillrect.c
+        vs/sdl2/src/render/software/SDL_blendline.c
+        vs/sdl2/src/render/software/SDL_blendpoint.c
+        vs/sdl2/src/render/software/SDL_drawline.c
+        vs/sdl2/src/render/software/SDL_drawpoint.c
+        vs/sdl2/src/render/software/SDL_render_sw.c
+        vs/sdl2/src/render/software/SDL_rotate.c
+        vs/sdl2/src/render/software/SDL_triangle.c
+        vs/sdl2/src/sensor/SDL_sensor.c
+        vs/sdl2/src/sensor/dummy/SDL_dummysensor.c
+        vs/sdl2/src/sensor/windows/SDL_windowssensor.c
+        vs/sdl2/src/stdlib/SDL_crc16.c
+        vs/sdl2/src/stdlib/SDL_crc32.c
+        vs/sdl2/src/stdlib/SDL_getenv.c
+        vs/sdl2/src/stdlib/SDL_iconv.c
+        vs/sdl2/src/stdlib/SDL_malloc.c
+        vs/sdl2/src/stdlib/SDL_mslibc.c
+        vs/sdl2/src/stdlib/SDL_qsort.c
+        vs/sdl2/src/stdlib/SDL_stdlib.c
+        vs/sdl2/src/stdlib/SDL_string.c
+        vs/sdl2/src/stdlib/SDL_strtokr.c
+        vs/sdl2/src/thread/SDL_thread.c
+        vs/sdl2/src/thread/generic/SDL_syscond.c
+        vs/sdl2/src/thread/windows/SDL_syscond_cv.c
+        vs/sdl2/src/thread/windows/SDL_sysmutex.c
+        vs/sdl2/src/thread/windows/SDL_syssem.c
+        vs/sdl2/src/thread/windows/SDL_systhread.c
+        vs/sdl2/src/thread/windows/SDL_systls.c
+        vs/sdl2/src/timer/SDL_timer.c
+        vs/sdl2/src/timer/windows/SDL_systimer.c
+        vs/sdl2/src/video/SDL_blit.c
+        vs/sdl2/src/video/SDL_blit_0.c
+        vs/sdl2/src/video/SDL_blit_1.c
+        vs/sdl2/src/video/SDL_blit_A.c
+        vs/sdl2/src/video/SDL_blit_auto.c
+        vs/sdl2/src/video/SDL_blit_copy.c
+        vs/sdl2/src/video/SDL_blit_N.c
+        vs/sdl2/src/video/SDL_blit_slow.c
+        vs/sdl2/src/video/SDL_bmp.c
+        vs/sdl2/src/video/SDL_clipboard.c
+        vs/sdl2/src/video/SDL_egl.c
+        vs/sdl2/src/video/SDL_fillrect.c
+        vs/sdl2/src/video/SDL_pixels.c
+        vs/sdl2/src/video/SDL_rect.c
+        vs/sdl2/src/video/SDL_RLEaccel.c
+        vs/sdl2/src/video/SDL_shape.c
+        vs/sdl2/src/video/SDL_stretch.c
+        vs/sdl2/src/video/SDL_surface.c
+        vs/sdl2/src/video/SDL_video.c
+        vs/sdl2/src/video/SDL_vulkan_utils.c
+        vs/sdl2/src/video/SDL_yuv.c
+        vs/sdl2/src/video/dummy/SDL_nullevents.c
+        vs/sdl2/src/video/dummy/SDL_nullframebuffer.c
+        vs/sdl2/src/video/dummy/SDL_nullvideo.c
+        vs/sdl2/src/video/windows/SDL_windowsclipboard.c
+        vs/sdl2/src/video/windows/SDL_windowsevents.c
+        vs/sdl2/src/video/windows/SDL_windowsframebuffer.c
+        vs/sdl2/src/video/windows/SDL_windowskeyboard.c
+        vs/sdl2/src/video/windows/SDL_windowsmessagebox.c
+        vs/sdl2/src/video/windows/SDL_windowsmodes.c
+        vs/sdl2/src/video/windows/SDL_windowsmouse.c
+        vs/sdl2/src/video/windows/SDL_windowsopengl.c
+        vs/sdl2/src/video/windows/SDL_windowsopengles.c
+        vs/sdl2/src/video/windows/SDL_windowsshape.c
+        vs/sdl2/src/video/windows/SDL_windowsvideo.c
+        vs/sdl2/src/video/windows/SDL_windowsvulkan.c
+        vs/sdl2/src/video/windows/SDL_windowswindow.c
+        vs/sdl2/src/video/yuv2rgb/yuv_rgb_lsx.c
+        vs/sdl2/src/video/yuv2rgb/yuv_rgb_sse.c
+        vs/sdl2/src/video/yuv2rgb/yuv_rgb_std.c
+    )
+    target_include_directories(sdl2_bundled PUBLIC "${VS_DIR}/sdl2/include")
+    target_include_directories(sdl2_bundled PRIVATE "${VS_DIR}/sdl2/src")
+    target_compile_definitions(sdl2_bundled PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE)
+    target_link_libraries(sdl2_bundled PRIVATE
+        user32 gdi32 winmm imm32 ole32 oleaut32 version setupapi hid
+    )
+    if(MSVC)
+        target_compile_options(sdl2_bundled PRIVATE /W0 /MP)
+    endif()
+
+    # SDL2main (provides WinMain entry point)
+    target_sources(dosbox-x PRIVATE vs/sdl2/src/main/windows/SDL_windows_main.c)
+
+    # ── SDL2_net ────────────────────────────────────────────────────────────
+    add_library(sdl2net_bundled STATIC
+        vs/sdl2net/SDLnet.c
+        vs/sdl2net/SDLnetselect.c
+        vs/sdl2net/SDLnetTCP.c
+        vs/sdl2net/SDLnetUDP.c
+    )
+    target_include_directories(sdl2net_bundled PUBLIC "${VS_DIR}/sdl2net")
+    target_link_libraries(sdl2net_bundled PRIVATE sdl2_bundled Ws2_32 Iphlpapi)
+    target_compile_definitions(sdl2net_bundled PRIVATE _CRT_SECURE_NO_WARNINGS)
+    if(MSVC)
+        target_compile_options(sdl2net_bundled PRIVATE /W0 /MP)
+    endif()
+
+    # ── pdcurses (for debugger) ─────────────────────────────────────────────
+    if(ENABLE_DEBUG)
+        add_library(pdcurses_bundled STATIC
+            vs/libpdcurses/pdcurses/addch.c
+            vs/libpdcurses/pdcurses/addchstr.c
+            vs/libpdcurses/pdcurses/addstr.c
+            vs/libpdcurses/pdcurses/attr.c
+            vs/libpdcurses/pdcurses/beep.c
+            vs/libpdcurses/pdcurses/bkgd.c
+            vs/libpdcurses/pdcurses/border.c
+            vs/libpdcurses/pdcurses/clear.c
+            vs/libpdcurses/pdcurses/color.c
+            vs/libpdcurses/pdcurses/debug.c
+            vs/libpdcurses/pdcurses/delch.c
+            vs/libpdcurses/pdcurses/deleteln.c
+            vs/libpdcurses/pdcurses/deprec.c
+            vs/libpdcurses/pdcurses/getch.c
+            vs/libpdcurses/pdcurses/getstr.c
+            vs/libpdcurses/pdcurses/getyx.c
+            vs/libpdcurses/pdcurses/inch.c
+            vs/libpdcurses/pdcurses/inchstr.c
+            vs/libpdcurses/pdcurses/initscr.c
+            vs/libpdcurses/pdcurses/inopts.c
+            vs/libpdcurses/pdcurses/insch.c
+            vs/libpdcurses/pdcurses/insstr.c
+            vs/libpdcurses/pdcurses/instr.c
+            vs/libpdcurses/pdcurses/kernel.c
+            vs/libpdcurses/pdcurses/keyname.c
+            vs/libpdcurses/pdcurses/mouse.c
+            vs/libpdcurses/pdcurses/move.c
+            vs/libpdcurses/pdcurses/outopts.c
+            vs/libpdcurses/pdcurses/overlay.c
+            vs/libpdcurses/pdcurses/pad.c
+            vs/libpdcurses/pdcurses/panel.c
+            vs/libpdcurses/pdcurses/printw.c
+            vs/libpdcurses/pdcurses/refresh.c
+            vs/libpdcurses/pdcurses/scanw.c
+            vs/libpdcurses/pdcurses/scroll.c
+            vs/libpdcurses/pdcurses/scr_dump.c
+            vs/libpdcurses/pdcurses/slk.c
+            vs/libpdcurses/pdcurses/termattr.c
+            vs/libpdcurses/pdcurses/terminfo.c
+            vs/libpdcurses/pdcurses/touch.c
+            vs/libpdcurses/pdcurses/util.c
+            vs/libpdcurses/pdcurses/window.c
+            vs/libpdcurses/wincon/pdcclip.c
+            vs/libpdcurses/wincon/pdcdisp.c
+            vs/libpdcurses/wincon/pdcgetsc.c
+            vs/libpdcurses/wincon/pdckbd.c
+            vs/libpdcurses/wincon/pdcscrn.c
+            vs/libpdcurses/wincon/pdcsetsc.c
+            vs/libpdcurses/wincon/pdcutil.c
+        )
+        target_include_directories(pdcurses_bundled PUBLIC "${VS_DIR}/libpdcurses")
+        target_compile_definitions(pdcurses_bundled PRIVATE _CRT_SECURE_NO_WARNINGS)
+        if(MSVC)
+            target_compile_options(pdcurses_bundled PRIVATE /W0 /MP)
         endif()
     endif()
 
-    if(EXISTS "${VS_DIR}/zlib")
-        target_include_directories(dosbox-x PRIVATE "${VS_DIR}/zlib")
-    endif()
-    if(EXISTS "${VS_DIR}/libpng")
-        target_include_directories(dosbox-x PRIVATE "${VS_DIR}/libpng")
-    endif()
-    if(EXISTS "${VS_DIR}/freetype/include")
-        target_include_directories(dosbox-x PRIVATE "${VS_DIR}/freetype/include")
-    endif()
-    if(ENABLE_DEBUG AND EXISTS "${VS_DIR}/libpdcurses")
-        target_include_directories(dosbox-x PRIVATE "${VS_DIR}/libpdcurses")
-    endif()
-    if(ENABLE_PCAP AND EXISTS "${VS_DIR}/pcap")
+    # ── Include directories for dosbox-x ────────────────────────────────────
+    # vs/pcap must come BEFORE vs/ so that <pcap/pcap.h> resolves to
+    # vs/pcap/pcap/pcap.h instead of the compat shim vs/pcap/pcap.h
+    if(ENABLE_PCAP)
         target_include_directories(dosbox-x PRIVATE "${VS_DIR}/pcap")
     endif()
+    target_include_directories(dosbox-x PRIVATE
+        "${VS_DIR}/sdl2/include"
+        "${VS_DIR}/sdl2net"
+        "${VS_DIR}/zlib"
+        "${VS_DIR}/libpng"
+        "${VS_DIR}/freetype/include"
+        "${VS_DIR}"
+    )
+    if(ENABLE_DEBUG)
+        target_include_directories(dosbox-x PRIVATE "${VS_DIR}/libpdcurses")
+    endif()
 
-    # config.h from vs/ directory
-    target_include_directories(dosbox-x PRIVATE "${VS_DIR}")
+    # ── Link bundled libraries ──────────────────────────────────────────────
+    target_link_libraries(dosbox-x PRIVATE
+        sdl2_bundled sdl2net_bundled zlib_bundled libpng_bundled freetype_bundled
+    )
+    if(ENABLE_DEBUG)
+        target_link_libraries(dosbox-x PRIVATE pdcurses_bundled)
+    endif()
 
     # Windows system libraries
     target_link_libraries(dosbox-x PRIVATE
         winmm imm32 dsound dxguid SetupAPI version
-        Iphlpapi Ws2_32 opengl32
+        Iphlpapi Ws2_32 opengl32 user32 gdi32 ole32 oleaut32 hid
     )
 else()
     # Unix/macOS: use find_package / pkg-config
