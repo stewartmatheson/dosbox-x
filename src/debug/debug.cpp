@@ -47,6 +47,7 @@ using namespace std;
 #include "paging.h"
 #include "shell.h"
 #include "debug_inc.h"
+#include "debug_lua.h"
 #include "../cpu/lazyflags.h"
 #include "keyboard.h"
 #include "control.h"
@@ -2339,6 +2340,11 @@ bool ParseCommand(char* str) {
 		return true;
 	}
 
+	if (command == "LUA") {
+		DEBUG_LuaCommand(found, str);
+		return true;
+	}
+
 	if (command == "IV") { // Insert variable
 		uint16_t seg = (uint16_t)GetHexValue(found,found); found++;
 		uint32_t ofs = GetHexValue(found,found); found++;
@@ -4066,6 +4072,7 @@ bool ParseCommand(char* str) {
         DEBUG_ShowMsg("MEMFIND [seg]:[off] [.].. - Start memory find search instance.\n");
 		DEBUG_ShowMsg("MEMS [operator] [value]   - Search value within instance.\n");
 		DEBUG_ShowMsg("MEMSRCH [s]:[o] [r] [str] - Search memory for ASCII string.\n");
+		DEBUG_ShowMsg("LUA EXEC/EVAL/RESET       - Lua scripting commands.\n");
 		DEBUG_ShowMsg("SELINFO [segName]         - Show selector info.\n");
 
 		DEBUG_ShowMsg("INTVEC [filename]         - Writes interrupt vector table to file.\n");

@@ -180,3 +180,91 @@ DATE <date>                                 Display or change the internal date
 HEAVYLOG                                    Toggle heavy CPU logging
 ZEROPROTECT                                 Toggle zero protection
 HELP                                        Show some debugger commands for reference
+MEMSRCH <seg> <off> <range> <string>        Search memory for ASCII string (case-sensitive)
+LUA                                         Show Lua scripting help
+LUA EXEC <file>                             Execute a Lua script file
+LUA EVAL <expression>                       Evaluate a Lua expression
+LUA RESET                                   Reset the Lua scripting state
+
+Lua scripting
+-------------
+
+When built with ENABLE_LUA=ON (the default when the debugger is enabled),
+the debugger supports Lua 5.4 scripting via the LUA command. Scripts have
+access to emulated memory through the "dosbox" table.
+
+The Lua state persists across debugger sessions. Use LUA RESET to clear it.
+
+Getting started:
+
+  LUA EVAL dosbox.print("hello from lua")
+  LUA EXEC myscript.lua
+
+API reference - dosbox table:
+
+  dosbox.print(message)
+      Print a message to the debugger output window.
+
+  dosbox.readb(address)
+  dosbox.readw(address)
+  dosbox.readd(address)
+      Read 1/2/4 bytes from a linear address.
+      Returns the value as an integer, or nil on a page fault.
+
+  dosbox.writeb(address, value)
+  dosbox.writew(address, value)
+  dosbox.writed(address, value)
+      Write 1/2/4 bytes to a linear address.
+      Returns true on success, false on fault.
+
+  dosbox.sreadb(seg, offset)
+  dosbox.sreadw(seg, offset)
+  dosbox.sreadd(seg, offset)
+      Read 1/2/4 bytes using seg:offset addressing.
+      In protected mode, the segment is resolved as a selector via the GDT.
+      Returns the value as an integer, or nil on fault/invalid selector.
+
+  dosbox.swriteb(seg, offset, value)
+  dosbox.swritew(seg, offset, value)
+  dosbox.swrited(seg, offset, value)
+      Write 1/2/4 bytes using seg:offset addressing.
+      Returns true on success, false on fault/invalid selector.
+
+  dosbox.readstring(address [, maxlen])
+      Read a null-terminated ASCII string from a linear address.
+      maxlen defaults to 256. Returns a Lua string.
+
+  dosbox.linear(seg, offset)
+      Resolve a seg:offset pair to a linear address.
+      In protected mode, performs a GDT descriptor lookup.
+      Returns the linear address, or nil for an invalid selector.
+
+  dosbox.memsearch(start, range, string)
+      Search memory for an ASCII string (case-sensitive).
+      Returns a table of linear addresses where the string was found.
+
+Example - find a known string and compute a Ghidra base offset:
+
+  -- Search first 16MB for a string visible in the game
+  local hits = dosbox.memsearch(0, 0x1000000, "Press any key")
+  if #hits > 0 then
+      -- Subtract the address Ghidra shows for the same string
+      local ghidra_addr = 0x0047BF88
+      local base = hits[1] - ghidra_addr
+      dosbox.print(string.format("Ghidra base offset: 0x%08X", base))
+      dosbox.print(string.format("Found at linear: 0x%08X", hits[1]))
+  else
+      dosbox.print("String not found")
+  end
+
+Example - dump a structure from memory:
+
+  local addr = 0x0087BF88
+  local id    = dosbox.readw(addr)
+  local flags = dosbox.readd(addr + 2)
+  local name  = dosbox.readstring(addr + 6)
+  dosbox.print(string.format("id=%d flags=0x%08X name=%s", id, flags, name))
+
+Example - patch a byte in memory:
+
+  dosbox.writeb(0x0087BF88, 0x90)  -- write a NOP

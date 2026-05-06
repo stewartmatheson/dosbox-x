@@ -17,6 +17,7 @@ option(ENABLE_PCAP    "Enable ethernet pass-through (libpcap)"     ON)
 option(ENABLE_PRINTER "Enable printer emulation"                   ON)
 option(ENABLE_FPU     "Enable FPU emulation"                       ON)
 option(ENABLE_GAMELINK "Enable gamelink support (SDL2 only)"       ON)
+option(ENABLE_LUA     "Enable Lua scripting in debugger"           ON)
 
 # ── Platform detection ───────────────────────────────────────────────────────
 if(WIN32)
@@ -146,6 +147,7 @@ set(DOSBOX_SOURCES
     src/debug/debug.cpp
     src/debug/debug_disasm.cpp
     src/debug/debug_gui.cpp
+    src/debug/debug_lua.cpp
 
     # dos
     src/dos/cdrom.cpp
@@ -767,6 +769,9 @@ endif()
 
 if(ENABLE_DEBUG)
     target_compile_definitions(dosbox-x PRIVATE C_DEBUG=1 C_HEAVY_DEBUG=1)
+    if(ENABLE_LUA)
+        target_compile_definitions(dosbox-x PRIVATE C_LUA=1)
+    endif()
 endif()
 
 if(ENABLE_OPENGL)
@@ -1213,6 +1218,49 @@ if(IS_WINDOWS)
         endif()
     endif()
 
+    # ── lua (for debugger scripting) ───────────────────────────────────────
+    if(ENABLE_DEBUG AND ENABLE_LUA)
+        add_library(lua_bundled STATIC
+            vs/lua/lapi.c
+            vs/lua/lauxlib.c
+            vs/lua/lbaselib.c
+            vs/lua/lcode.c
+            vs/lua/lcorolib.c
+            vs/lua/lctype.c
+            vs/lua/ldblib.c
+            vs/lua/ldebug.c
+            vs/lua/ldo.c
+            vs/lua/ldump.c
+            vs/lua/lfunc.c
+            vs/lua/lgc.c
+            vs/lua/linit.c
+            vs/lua/liolib.c
+            vs/lua/llex.c
+            vs/lua/lmathlib.c
+            vs/lua/lmem.c
+            vs/lua/loadlib.c
+            vs/lua/lobject.c
+            vs/lua/lopcodes.c
+            vs/lua/loslib.c
+            vs/lua/lparser.c
+            vs/lua/lstate.c
+            vs/lua/lstring.c
+            vs/lua/lstrlib.c
+            vs/lua/ltable.c
+            vs/lua/ltablib.c
+            vs/lua/ltm.c
+            vs/lua/lundump.c
+            vs/lua/lutf8lib.c
+            vs/lua/lvm.c
+            vs/lua/lzio.c
+        )
+        target_include_directories(lua_bundled PUBLIC "${VS_DIR}/lua")
+        target_compile_definitions(lua_bundled PRIVATE _CRT_SECURE_NO_WARNINGS)
+        if(MSVC)
+            target_compile_options(lua_bundled PRIVATE /W0 /MP)
+        endif()
+    endif()
+
     # ── Include directories for dosbox-x ────────────────────────────────────
     # vs/pcap must come BEFORE vs/ so that <pcap/pcap.h> resolves to
     # vs/pcap/pcap/pcap.h instead of the compat shim vs/pcap/pcap.h
@@ -1229,6 +1277,9 @@ if(IS_WINDOWS)
     )
     if(ENABLE_DEBUG)
         target_include_directories(dosbox-x PRIVATE "${VS_DIR}/libpdcurses")
+        if(ENABLE_LUA)
+            target_include_directories(dosbox-x PRIVATE "${VS_DIR}/lua")
+        endif()
     endif()
 
     # ── Link bundled libraries ──────────────────────────────────────────────
@@ -1237,6 +1288,9 @@ if(IS_WINDOWS)
     )
     if(ENABLE_DEBUG)
         target_link_libraries(dosbox-x PRIVATE pdcurses_bundled)
+        if(ENABLE_LUA)
+            target_link_libraries(dosbox-x PRIVATE lua_bundled)
+        endif()
     endif()
 
     # Windows system libraries
