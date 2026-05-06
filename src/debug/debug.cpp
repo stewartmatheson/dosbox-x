@@ -2329,9 +2329,8 @@ bool ParseCommand(char* str) {
 				}
 			}
 			if (match) {
-				uint16_t match_seg = (uint16_t)(addr >> 4);
-				uint32_t match_ofs = addr - ((uint32_t)match_seg << 4);
-				DEBUG_ShowMsg("DEBUG: [MEMSRCH] Found at %04X:%04X (linear %06X)\n", match_seg, match_ofs, addr);
+				uint32_t match_ofs = addr - linear_start;
+				DEBUG_ShowMsg("DEBUG: [MEMSRCH] Found at %04X:%08X (linear %08X)\n", seg, match_ofs, addr);
 				matches++;
 			}
 		}
