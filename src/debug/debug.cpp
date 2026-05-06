@@ -2274,6 +2274,72 @@ bool ParseCommand(char* str) {
 		return true;
 	}
 
+	if (command == "MEMSRCH") { // Search memory for ASCII string
+		uint16_t seg;
+		uint32_t ofs;
+		uint32_t range;
+		if (found[0] == '\0' || found[0] == ' ') {
+			DEBUG_ShowMsg("DEBUG: --MEMSRCH-- Search memory for ASCII string.\n");
+			DEBUG_ShowMsg("DEBUG: Usage: MEMSRCH [seg]:[offset] [range] [string]\n");
+			DEBUG_ShowMsg("DEBUG: Reports matches with seg:offset and linear address.\n");
+			DEBUG_ShowMsg("DEBUG: Example: MEMSRCH 0:0 AFFFF Press any key\n");
+			return true;
+		}
+		seg = (uint16_t)GetHexValue(found,found); found++;
+		ofs = GetHexValue(found,found); found++;
+		range = GetHexValue(found,found); found++;
+		SkipSpace(found);
+		if (found[0] == '\0') {
+			DEBUG_ShowMsg("DEBUG: No search string specified.\n");
+			return true;
+		}
+		size_t needle_len = strlen(found);
+		if (needle_len == 0) {
+			DEBUG_ShowMsg("DEBUG: Empty search string.\n");
+			return true;
+		}
+		char* str_end = str + strlen(str);
+		while (str_end > str && isspace(*(unsigned char*)(str_end - 1))) str_end--;
+		const char* needle = str_end - needle_len;
+		uint64_t addr64 = GetAddress(seg, ofs);
+		if (addr64 == mem_no_address) {
+			DEBUG_ShowMsg("DEBUG: Invalid segment selector.\n");
+			return true;
+		}
+		uint32_t linear_start = (uint32_t)addr64;
+		uint32_t linear_end = linear_start + range;
+		if (linear_end < linear_start) {
+			linear_end = 0xFFFFFFFFu;
+		}
+		if (needle_len > (linear_end - linear_start)) {
+			DEBUG_ShowMsg("DEBUG: Search string longer than range.\n");
+			return true;
+		}
+		uint32_t search_end = linear_end - (uint32_t)needle_len + 1;
+		uint32_t matches = 0;
+		DEBUG_BeginPagedContent();
+		for (uint32_t addr = linear_start; addr < search_end; addr++) {
+			bool match = true;
+			for (size_t j = 0; j < needle_len; j++) {
+				uint8_t membyte;
+				mem_readb_checked((PhysPt)(addr + (uint32_t)j), &membyte);
+				if ((char)membyte != needle[j]) {
+					match = false;
+					break;
+				}
+			}
+			if (match) {
+				uint16_t match_seg = (uint16_t)(addr >> 4);
+				uint32_t match_ofs = addr - ((uint32_t)match_seg << 4);
+				DEBUG_ShowMsg("DEBUG: [MEMSRCH] Found at %04X:%04X (linear %06X)\n", match_seg, match_ofs, addr);
+				matches++;
+			}
+		}
+		DEBUG_ShowMsg("DEBUG: [MEMSRCH] %u match(es) found.\n", matches);
+		DEBUG_EndPagedContent();
+		return true;
+	}
+
 	if (command == "IV") { // Insert variable
 		uint16_t seg = (uint16_t)GetHexValue(found,found); found++;
 		uint32_t ofs = GetHexValue(found,found); found++;
@@ -4000,6 +4066,7 @@ bool ParseCommand(char* str) {
 		DEBUG_ShowMsg("MEMDUMPBIN [s]:[o] [len]  - Write memory to file memdump.bin.\n");
         DEBUG_ShowMsg("MEMFIND [seg]:[off] [.].. - Start memory find search instance.\n");
 		DEBUG_ShowMsg("MEMS [operator] [value]   - Search value within instance.\n");
+		DEBUG_ShowMsg("MEMSRCH [s]:[o] [r] [str] - Search memory for ASCII string.\n");
 		DEBUG_ShowMsg("SELINFO [segName]         - Show selector info.\n");
 
 		DEBUG_ShowMsg("INTVEC [filename]         - Writes interrupt vector table to file.\n");
